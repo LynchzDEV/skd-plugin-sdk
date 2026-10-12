@@ -37,7 +37,7 @@ access, and expect users to think twice before installing it.
 |---|---|
 | `id` | 3–40 chars, lowercase letters, digits, dashes. Unique among installed plugins. |
 | `name`, `version`, `description` | Non-empty strings shown in the Marketplace. |
-| `pluginApi` | `1`. Any other value installs nothing and shows "Needs a newer Mission Control". |
+| `pluginApi` | `1`, or `2` for a plugin with `contributes`. Any other value installs nothing and shows "Needs a newer Mission Control". |
 | `runtime` | `"trusted"` or `"isolated"`. |
 | `icon` | Optional path inside the repo (svg/png), e.g. `assets/icon.svg`. |
 | `server` | Optional path inside the repo, e.g. `src/server.ts`. Relative, no `..`, no leading `/`. |
@@ -47,9 +47,31 @@ access, and expect users to think twice before installing it.
 | `permissions.sessions` | A subset of `["chat", "terminal"]`. Needed to start sessions from the screen. |
 | `permissions.settings` | `true` when the plugin keeps its own settings (secrets included). |
 | `settings` | Declared fields render in the plugin's Marketplace detail. `secret` fields are masked and never sent back to the screen. |
+| `contributes.agents` | `pluginApi` 2. Agent `.md` files inside the repo, each with `name:` in its frontmatter. |
+| `contributes.skills` | `pluginApi` 2. Skill folders inside the repo, each holding `SKILL.md` with `name:`. |
+| `contributes.flows` | `pluginApi` 2. Studio flow `.json` files inside the repo. |
 
 Point editors at `schema/mc-plugin.schema.json` (JSON Schema draft 2020-12) for
 validation and completion while you edit the manifest.
+
+## Contributing agents, skills and Studio flows
+
+A plugin can carry work for the engines, not only code for Mission Control:
+
+```json
+"pluginApi": 2,
+"contributes": {
+  "agents": ["agents/biz-gate.md"],
+  "skills": ["skills/card-refine"],
+  "flows": ["flows/card-pipeline.json"]
+}
+```
+
+- **Agents and skills** are copied into each engine's config (`~/.claude/agents`, `~/.claude/skills`, the worker and chat profiles, and mirrored to Codex) while the plugin is installed and enabled. Disable or uninstall removes exactly the files Mission Control wrote.
+- **Flows** appear in Studio as read-only entries named `<plugin name>: <flow name>`. Save a copy to change one; uninstalling the plugin removes the entry, never your copy. Each flow is checked with Studio's own rules at install.
+- **Settings in files.** Contributed files may contain `{{setting:<key>}}` (a declared `text` setting) and `{{mc:mctl}}` (the command that runs this Mission Control's `mctl`). Mission Control fills them when it copies the files and again whenever the setting changes. Secret settings can never be filled into a file.
+- **Collisions.** If an agent or skill with the same name already exists and Mission Control did not write it, the install stops and names it; nothing of the user's is moved or overwritten.
+- **Trust.** Agents, skills and flows run with the user's full permissions, so a plugin with `contributes` needs the trust confirmation even when its runtime is `isolated`. The install prompt lists every item and where it goes; an update that adds one asks again.
 
 ## Server part
 
