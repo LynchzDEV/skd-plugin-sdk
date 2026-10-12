@@ -2,6 +2,8 @@ export type SettingField = { key: string; label: string; type: 'text' | 'secret'
 
 export type PluginRuntime = 'trusted' | 'isolated'
 
+export type PluginContributions = { agents?: string[]; skills?: string[]; flows?: string[] }
+
 export type PluginManifest = {
   id: string
   name: string
@@ -15,6 +17,7 @@ export type PluginManifest = {
   queueSource?: boolean
   permissions: { network?: string[]; sessions?: Array<'chat' | 'terminal'>; settings?: boolean }
   settings?: SettingField[]
+  contributes?: PluginContributions
 }
 
 export type TaskContext = { name: string; markdown: string }

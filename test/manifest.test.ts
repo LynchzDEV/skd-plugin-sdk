@@ -52,8 +52,8 @@ describe('parseManifest', () => {
     expect(result.ok).toBe(true)
   })
 
-  test('pluginApi 2 says it needs a newer Mission Control', () => {
-    const errors = errorsOf({ ...clickupManifest, pluginApi: 2 })
+  test('pluginApi 3 says it needs a newer Mission Control', () => {
+    const errors = errorsOf({ ...clickupManifest, pluginApi: 3 })
     expect(errors).toContain('This plugin needs a newer Mission Control')
   })
 
@@ -142,12 +142,12 @@ describe('manifestSchema', () => {
     expect(manifestSchema.safeParse(clickupManifest).success).toBe(true)
   })
 
-  test('SUPPORTED_PLUGIN_APIS lists exactly version 1', () => {
-    expect(SUPPORTED_PLUGIN_APIS).toEqual([1])
+  test('SUPPORTED_PLUGIN_APIS lists versions 1 and 2', () => {
+    expect(SUPPORTED_PLUGIN_APIS).toEqual([1, 2])
   })
 
-  test('rejects pluginApi 2 like the JSON Schema enum', () => {
-    expect(manifestSchema.safeParse({ ...clickupManifest, pluginApi: 2 }).success).toBe(false)
+  test('rejects pluginApi 3 like the JSON Schema enum', () => {
+    expect(manifestSchema.safeParse({ ...clickupManifest, pluginApi: 3 }).success).toBe(false)
   })
 
   test('rejects repeated session kinds like the JSON Schema uniqueItems', () => {
@@ -167,7 +167,7 @@ describe('schema/mc-plugin.schema.json', () => {
     const schema = JSON.parse(readFileSync('schema/mc-plugin.schema.json', 'utf8'))
     expect(schema.$schema).toBe('https://json-schema.org/draft/2020-12/schema')
     expect(schema.properties.id.pattern).toBe(PLUGIN_ID_PATTERN)
-    expect(schema.properties.pluginApi.enum).toEqual([1])
+    expect(schema.properties.pluginApi.enum).toEqual([1, 2])
     expect(schema.properties.runtime.enum).toEqual(['trusted', 'isolated'])
     expect(schema.properties.permissions.properties.sessions.uniqueItems).toBe(true)
     expect(new RegExp(schema.$defs.repoPath.pattern).test('../x.ts')).toBe(false)
@@ -176,5 +176,78 @@ describe('schema/mc-plugin.schema.json', () => {
     for (const host of ['api.clickup.com', '*.clickup-attachments.com']) expect(network.test(host), host).toBe(true)
     for (const host of ['*.com', '*', 'a.*.b', '**.x', 'https://api.clickup.com']) expect(network.test(host), host).toBe(false)
     expect(schema.properties.queueSource.type).toBe('boolean')
+    const contributes = schema.properties.contributes
+    expect(contributes.additionalProperties).toBe(false)
+    expect(new RegExp(contributes.properties.agents.items.pattern).test('agents/biz-gate.md')).toBe(true)
+    expect(new RegExp(contributes.properties.agents.items.pattern).test('agents/biz-gate.txt')).toBe(false)
+    expect(new RegExp(contributes.properties.agents.items.pattern).test('../agents/x.md')).toBe(false)
+    expect(new RegExp(contributes.properties.skills.items.pattern).test('skills/card-refine')).toBe(true)
+    expect(new RegExp(contributes.properties.skills.items.pattern).test('/skills/x')).toBe(false)
+    expect(new RegExp(contributes.properties.flows.items.pattern).test('flows/card-pipeline.json')).toBe(true)
+    expect(new RegExp(contributes.properties.flows.items.pattern).test('flows/card-pipeline.yaml')).toBe(false)
+  })
+})
+
+const contributingManifest: PluginManifest = {
+  id: 'card-pipeline',
+  name: 'Card pipeline',
+  version: '0.1.0',
+  description: 'Refine ClickUp cards with the biz-gate agent.',
+  pluginApi: 2,
+  runtime: 'isolated',
+  permissions: { settings: true },
+  settings: [{ key: 'reposRoot', label: 'Repos folder', type: 'text' }],
+  contributes: { agents: ['agents/biz-gate.md'], skills: ['skills/card-refine'], flows: ['flows/card-pipeline.json'] },
+}
+
+describe('contributes', () => {
+  test('accepts agents and skills under pluginApi 2', () => {
+    const result = parseManifest(contributingManifest)
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.manifest.contributes).toEqual({ agents: ['agents/biz-gate.md'], skills: ['skills/card-refine'], flows: ['flows/card-pipeline.json'] })
+  })
+
+  test('accepts pluginApi 2 without contributes', () => {
+    const { contributes: _contributes, ...plain } = contributingManifest
+    expect(parseManifest(plain).ok).toBe(true)
+  })
+
+  test('accepts only agents, only skills or only flows', () => {
+    expect(parseManifest({ ...contributingManifest, contributes: { agents: ['agents/a.md'] } }).ok).toBe(true)
+    expect(parseManifest({ ...contributingManifest, contributes: { skills: ['skills/b'] } }).ok).toBe(true)
+    expect(parseManifest({ ...contributingManifest, contributes: { flows: ['flows/c.json'] } }).ok).toBe(true)
+  })
+
+  test('a flow is a .json file inside the repo', () => {
+    expect(errorsOf({ ...contributingManifest, contributes: { flows: ['flows/c.yaml'] } })).toContain('flows must be .json files inside the plugin repo')
+    expect(errorsOf({ ...contributingManifest, contributes: { flows: ['../c.json'] } })).toContain('flows must be .json files inside the plugin repo')
+  })
+
+  test('needs pluginApi 2', () => {
+    expect(errorsOf({ ...contributingManifest, pluginApi: 1 })).toContain('contributes needs pluginApi 2')
+  })
+
+  test('must list at least one agent, skill or flow', () => {
+    expect(errorsOf({ ...contributingManifest, contributes: {} })).toContain('contributes must list at least one agent, skill or flow')
+    expect(errorsOf({ ...contributingManifest, contributes: { agents: [], skills: [], flows: [] } })).toContain('contributes must list at least one agent, skill or flow')
+  })
+
+  test('an agent is a .md file inside the repo', () => {
+    expect(errorsOf({ ...contributingManifest, contributes: { agents: ['agents/biz-gate.txt'] } })).toContain('agents must be .md files inside the plugin repo')
+    expect(errorsOf({ ...contributingManifest, contributes: { agents: ['../biz-gate.md'] } })).toContain('agents must be .md files inside the plugin repo')
+    expect(errorsOf({ ...contributingManifest, contributes: { agents: ['/abs/biz-gate.md'] } })).toContain('agents must be .md files inside the plugin repo')
+  })
+
+  test('a skill is a folder inside the repo', () => {
+    expect(errorsOf({ ...contributingManifest, contributes: { skills: ['../skills/x'] } })).toContain('skills must be folders inside the plugin repo')
+    expect(errorsOf({ ...contributingManifest, contributes: { skills: ['skills/x/SKILL.md'] } })).toContain('skills must be folders inside the plugin repo')
+  })
+
+  test('rejects a repeated path', () => {
+    expect(errorsOf({ ...contributingManifest, contributes: { agents: ['agents/a.md', 'agents/a.md'] } })).toContain('contributes must not repeat a path')
+  })
+
+  test('rejects an unknown contributes field', () => {
+    expect(errorsOf({ ...contributingManifest, contributes: { agents: ['agents/a.md'], hooks: ['hooks/x.json'] } }).length).toBeGreaterThan(0)
   })
 })
