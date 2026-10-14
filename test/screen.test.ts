@@ -1,6 +1,6 @@
-import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
+import { afterAll, afterEach, beforeAll, describe, expect, test } from 'bun:test'
 import * as Comlink from 'comlink'
-import { publicScreenApi, type ScreenApiTransport } from '../src/screen'
+import { pluginFrameInfo, publicScreenApi, type ScreenApiTransport } from '../src/screen'
 import type { ScreenApi, ThemeName } from '../src/types'
 
 function portEndpoint(port: MessagePort): Comlink.Endpoint {
@@ -93,5 +93,35 @@ describe('publicScreenApi', () => {
     await mc.onTheme((theme) => pluginSaw(theme))
     hostOnTheme?.('dark')
     await expect(seenTheme).resolves.toBe('dark')
+  })
+})
+
+describe('pluginFrameInfo', () => {
+  const frameWindow = globalThis as unknown as { window?: Partial<Window> }
+
+  afterEach(() => {
+    delete frameWindow.window
+  })
+
+  test('is undefined outside a browser', () => {
+    expect(pluginFrameInfo()).toBeUndefined()
+  })
+
+  test('reads window.__SKD_PLUGIN__', () => {
+    frameWindow.window = { __SKD_PLUGIN__: { id: 'clickup-board', runtime: 'isolated' } }
+    expect(pluginFrameInfo()).toEqual({ id: 'clickup-board', runtime: 'isolated' })
+  })
+
+  test('falls back to the legacy window.__MC_PLUGIN__', () => {
+    frameWindow.window = { __MC_PLUGIN__: { id: 'clickup-board', runtime: 'isolated' } }
+    expect(pluginFrameInfo()).toEqual({ id: 'clickup-board', runtime: 'isolated' })
+  })
+
+  test('prefers __SKD_PLUGIN__ when a host sets both', () => {
+    frameWindow.window = {
+      __SKD_PLUGIN__: { id: 'new', runtime: 'isolated' },
+      __MC_PLUGIN__: { id: 'old', runtime: 'trusted' },
+    }
+    expect(pluginFrameInfo()?.id).toBe('new')
   })
 })

@@ -21,14 +21,23 @@ export type ScreenApiTransport = {
   onTheme(cb: (theme: ThemeName) => void): Promise<void>
 }
 
+export type PluginFrameInfo = { id: string; runtime: 'trusted' | 'isolated' }
+
 declare global {
   interface Window {
-    __MC_PLUGIN__?: { id: string; runtime: 'trusted' | 'isolated' }
+    __SKD_PLUGIN__?: PluginFrameInfo
+    __MC_PLUGIN__?: PluginFrameInfo
   }
 }
 
+// ponytail: legacy window.__MC_PLUGIN__ read, drop once every host ships __SKD_PLUGIN__
+export function pluginFrameInfo(): PluginFrameInfo | undefined {
+  if (typeof window === 'undefined') return undefined
+  return window.__SKD_PLUGIN__ ?? window.__MC_PLUGIN__
+}
+
 export function defineScreen(mount: ScreenMount): ScreenDefinition {
-  if (typeof window !== 'undefined' && window.__MC_PLUGIN__?.runtime === 'isolated') {
+  if (pluginFrameInfo()?.runtime === 'isolated') {
     void mountIsolated(mount)
   }
   return { mount }

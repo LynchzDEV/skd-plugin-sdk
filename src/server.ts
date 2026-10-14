@@ -15,10 +15,15 @@ type WireMethod = MethodHandler<unknown, unknown>
 
 type CallParams = { method: string; params?: unknown }
 
+// ponytail: legacy MC_PLUGIN_ env reads, drop once every host ships the SKD_PLUGIN_ names
+export function pluginEnv(name: 'RUNTIME' | 'DATA', env: NodeJS.ProcessEnv = process.env): string | undefined {
+  return env[`SKD_PLUGIN_${name}`] ?? env[`MC_PLUGIN_${name}`]
+}
+
 export function definePlugin<M extends Record<string, AnyMethodHandler>>(
   definition: PluginDefinition<M>,
 ): PluginDefinition<CallableMethods<M>> {
-  if (process.env.MC_PLUGIN_RUNTIME === 'isolated') serveStdio(definition)
+  if (pluginEnv('RUNTIME') === 'isolated') serveStdio(definition)
   return definition as unknown as PluginDefinition<CallableMethods<M>>
 }
 
@@ -36,7 +41,7 @@ export function serveStdio(definition: PluginDefinition): MessageConnection {
         await connection.sendRequest('settings.set', { key, value })
       },
     },
-    data: process.env.MC_PLUGIN_DATA ?? '',
+    data: pluginEnv('DATA') ?? '',
     log: (message) => connection.sendNotification('log', { message }),
   }
   connection.onRequest('plugin.call', async (params: CallParams) => {

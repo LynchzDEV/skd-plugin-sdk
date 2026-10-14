@@ -5,10 +5,12 @@ import { join } from 'node:path'
 import { Readable, Writable } from 'node:stream'
 import type { ReadableStream as NodeWebReadableStream } from 'node:stream/web'
 import { createMessageConnection, StreamMessageReader, StreamMessageWriter, type MessageConnection } from 'vscode-jsonrpc/node'
-import { definePlugin } from '../src/server'
+import { definePlugin, pluginEnv } from '../src/server'
 import type { ServerContext } from '../src/types'
 
-let child: Bun.Subprocess<'pipe', 'pipe', 'pipe'>
+type EchoChild = { child: Bun.Subprocess<'pipe', 'pipe', 'pipe'>; connection: MessageConnection }
+
+let child: EchoChild['child']
 let connection: MessageConnection
 let savedSetting: { key: string; value: string | null } | undefined
 let resolveNextLog: (message: string) => void
@@ -17,16 +19,10 @@ function toNodeReadable(stream: ReadableStream<Uint8Array>): Readable {
   return Readable.fromWeb(stream as unknown as NodeWebReadableStream<Uint8Array>)
 }
 
-beforeAll(async () => {
-  const dataDir = await mkdtemp(join(tmpdir(), 'mc-plugin-sdk-'))
-  child = Bun.spawn({
+function spawnEcho(pluginEnvVars: Record<string, string>): EchoChild {
+  const child = Bun.spawn({
     cmd: [process.execPath, join(import.meta.dir, 'fixtures', 'echo-plugin.ts')],
-    env: {
-      ...process.env,
-      MC_PLUGIN_RUNTIME: 'isolated',
-      MC_PLUGIN_ID: 'echo',
-      MC_PLUGIN_DATA: join(dataDir, 'files'),
-    },
+    env: { ...withoutPluginEnv(process.env), ...pluginEnvVars },
     stdin: 'pipe',
     stdout: 'pipe',
     stderr: 'pipe',
@@ -38,10 +34,30 @@ beforeAll(async () => {
       callback()
     },
   })
-  connection = createMessageConnection(
+  const connection = createMessageConnection(
     new StreamMessageReader(toNodeReadable(child.stdout)),
     new StreamMessageWriter(outbound),
   )
+  return { child, connection }
+}
+
+function withoutPluginEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  return Object.fromEntries(Object.entries(env).filter(([key]) => !/^(SKD|MC)_PLUGIN_/.test(key)))
+}
+
+async function stopEcho({ child, connection }: EchoChild): Promise<void> {
+  connection.dispose()
+  child.kill()
+  await child.exited
+}
+
+beforeAll(async () => {
+  const dataDir = await mkdtemp(join(tmpdir(), 'skd-plugin-sdk-'))
+  ;({ child, connection } = spawnEcho({
+    SKD_PLUGIN_RUNTIME: 'isolated',
+    SKD_PLUGIN_ID: 'echo',
+    SKD_PLUGIN_DATA: join(dataDir, 'files'),
+  }))
   connection.onRequest('settings.get', (params: { key: string }) => (params.key === 'token' ? 'test-token' : null))
   connection.onRequest('settings.set', (params: { key: string; value: string | null }) => {
     savedSetting = params
@@ -52,12 +68,16 @@ beforeAll(async () => {
 })
 
 afterAll(async () => {
-  connection.dispose()
-  child.kill()
-  await child.exited
+  await stopEcho({ child, connection })
 })
 
 describe('serveStdio', () => {
+  test('ctx.data comes from SKD_PLUGIN_DATA', async () => {
+    const result = await connection.sendRequest('plugin.call', { method: 'data.read' })
+    expect(result).toEndWith('/files')
+    expect(result).toContain('skd-plugin-sdk-')
+  })
+
   test('plugin.call echo returns the params', async () => {
     const result = await connection.sendRequest('plugin.call', {
       method: 'echo',
@@ -117,17 +137,57 @@ describe('serveStdio', () => {
   })
 })
 
+describe('legacy MC_PLUGIN_ env names', () => {
+  async function dataSeenBy(pluginEnvVars: Record<string, string>): Promise<unknown> {
+    const echo = spawnEcho(pluginEnvVars)
+    echo.connection.listen()
+    try {
+      return await echo.connection.sendRequest('plugin.call', { method: 'data.read' })
+    } finally {
+      await stopEcho(echo)
+    }
+  }
+
+  test('a host that only exports MC_PLUGIN_* still gets an isolated server', async () => {
+    expect(await dataSeenBy({ MC_PLUGIN_RUNTIME: 'isolated', MC_PLUGIN_DATA: '/tmp/legacy-data' })).toBe('/tmp/legacy-data')
+  })
+
+  test('SKD_PLUGIN_* wins when a host exports both names', async () => {
+    const both = {
+      SKD_PLUGIN_RUNTIME: 'isolated',
+      SKD_PLUGIN_DATA: '/tmp/new-data',
+      MC_PLUGIN_RUNTIME: 'isolated',
+      MC_PLUGIN_DATA: '/tmp/legacy-data',
+    }
+    expect(await dataSeenBy(both)).toBe('/tmp/new-data')
+  })
+})
+
+describe('pluginEnv', () => {
+  test('reads the SKD_PLUGIN_ name first', () => {
+    expect(pluginEnv('RUNTIME', { SKD_PLUGIN_RUNTIME: 'isolated', MC_PLUGIN_RUNTIME: 'trusted' })).toBe('isolated')
+  })
+
+  test('falls back to the MC_PLUGIN_ name', () => {
+    expect(pluginEnv('DATA', { MC_PLUGIN_DATA: '/data' })).toBe('/data')
+  })
+
+  test('is undefined when neither name is set', () => {
+    expect(pluginEnv('DATA', {})).toBeUndefined()
+  })
+})
+
 describe('definePlugin', () => {
   const ctx: ServerContext = {
     settings: { get: async () => null, set: async () => {} },
-    data: '/tmp/mc-plugin-sdk-direct',
+    data: '/tmp/skd-plugin-sdk-direct',
     log: () => {},
   }
 
   test('an unannotated handler accepts unknown params on a direct call', async () => {
     const definition = definePlugin({ methods: { hello: (_p, ctx) => ctx.data } })
-    expect(await definition.methods.hello(undefined, ctx)).toBe('/tmp/mc-plugin-sdk-direct')
-    expect(await definition.methods.hello('anything', ctx)).toBe('/tmp/mc-plugin-sdk-direct')
+    expect(await definition.methods.hello(undefined, ctx)).toBe('/tmp/skd-plugin-sdk-direct')
+    expect(await definition.methods.hello('anything', ctx)).toBe('/tmp/skd-plugin-sdk-direct')
   })
 
   test('an annotated handler keeps its param type on a direct call', async () => {
