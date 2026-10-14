@@ -1,28 +1,28 @@
-# @mission-control/plugin-sdk
+# @shikidan/plugin-sdk
 
-The toolkit for writing [Mission Control](https://github.com/LynchzDEV/mission-control) plugins.
-One API, two runtimes: your plugin runs either **trusted** (inside Mission Control) or
+The toolkit for writing [Shikidan](https://github.com/LynchzDEV/shiki) plugins.
+One API, two runtimes: your plugin runs either **trusted** (inside Shikidan) or
 **isolated** (an OS sandbox + locked iframe), and you write the same code either way.
 
 A plugin is a git repo with a `mc-plugin.json` manifest at the root, an optional server
 part (`server`) and an optional screen part (`screen`). The fastest start is to copy the
-template repo [mc-plugin-template](https://github.com/LynchzDEV/mc-plugin-template).
+template repo [skd-plugin-template](https://github.com/LynchzDEV/skd-plugin-template).
 
 ```json
 {
-  "dependencies": { "@mission-control/plugin-sdk": "github:LynchzDEV/mc-plugin-sdk#v0.1.0" }
+  "dependencies": { "@shikidan/plugin-sdk": "github:LynchzDEV/skd-plugin-sdk#v0.3.0" }
 }
 ```
 
 The SDK ships TypeScript source; Bun runs it directly, so there is no build step for the
-server part. Mission Control builds the screen part for you at install time.
+server part. Shikidan builds the screen part for you at install time.
 
 ## The two runtimes, and the trust trade
 
 | | `trusted` | `isolated` |
 |---|---|---|
-| Where the server part runs | Inside the Mission Control process | A separate process in an OS sandbox |
-| File access | Full, like Mission Control itself | Its own folder and its data folder only |
+| Where the server part runs | Inside the Shikidan process | A separate process in an OS sandbox |
+| File access | Full, like Shikidan itself | Its own folder and its data folder only |
 | Network | Anything | Only the hosts in `permissions.network` |
 | Secrets | Can read anything the host can | Its own settings only, one key at a time |
 | Screen | Imported into the page | A locked iframe with no access to the host page |
@@ -37,12 +37,12 @@ access, and expect users to think twice before installing it.
 |---|---|
 | `id` | 3–40 chars, lowercase letters, digits, dashes. Unique among installed plugins. |
 | `name`, `version`, `description` | Non-empty strings shown in the Marketplace. |
-| `pluginApi` | `1`, or `2` for a plugin with `contributes`. Any other value installs nothing and shows "Needs a newer Mission Control". |
+| `pluginApi` | `1`, or `2` for a plugin with `contributes`. Any other value installs nothing and shows "Needs a newer Shikidan". |
 | `runtime` | `"trusted"` or `"isolated"`. |
 | `icon` | Optional path inside the repo (svg/png), e.g. `assets/icon.svg`. |
 | `server` | Optional path inside the repo, e.g. `src/server.ts`. Relative, no `..`, no leading `/`. |
 | `screen` | Optional path inside the repo, e.g. `src/screen.ts`. Same path rules. |
-| `queueSource` | Optional boolean. `true` shows the Mission Control queue under this plugin in the sidebar (even when empty) and offers the plugin as a source in Add item. |
+| `queueSource` | Optional boolean. `true` shows the Shikidan queue under this plugin in the sidebar (even when empty) and offers the plugin as a source in Add item. |
 | `permissions.network` | Plain host names (`api.clickup.com`), or `*.` and a host of at least two labels (`*.clickup-attachments.com`, which matches any address ending in `.clickup-attachments.com`). No other wildcards, no URLs. Meaningful for isolated plugins. |
 | `permissions.sessions` | A subset of `["chat", "terminal"]`. Needed to start sessions from the screen. |
 | `permissions.settings` | `true` when the plugin keeps its own settings (secrets included). |
@@ -51,12 +51,13 @@ access, and expect users to think twice before installing it.
 | `contributes.skills` | `pluginApi` 2. Skill folders inside the repo, each holding `SKILL.md` with `name:`. |
 | `contributes.flows` | `pluginApi` 2. Studio flow `.json` files inside the repo. |
 
-Point editors at `schema/mc-plugin.schema.json` (JSON Schema draft 2020-12) for
-validation and completion while you edit the manifest.
+Point editors at `schema/skd-plugin.schema.json` (JSON Schema draft 2020-12) for
+validation and completion while you edit the manifest. The old path
+`schema/mc-plugin.schema.json` still works: it points at the new file.
 
 ## Contributing agents, skills and Studio flows
 
-A plugin can carry work for the engines, not only code for Mission Control:
+A plugin can carry work for the engines, not only code for Shikidan:
 
 ```json
 "pluginApi": 2,
@@ -67,16 +68,16 @@ A plugin can carry work for the engines, not only code for Mission Control:
 }
 ```
 
-- **Agents and skills** are copied into each engine's config (`~/.claude/agents`, `~/.claude/skills`, the worker and chat profiles, and mirrored to Codex) while the plugin is installed and enabled. Disable or uninstall removes exactly the files Mission Control wrote.
+- **Agents and skills** are copied into each engine's config (`~/.claude/agents`, `~/.claude/skills`, the worker and chat profiles, and mirrored to Codex) while the plugin is installed and enabled. Disable or uninstall removes exactly the files Shikidan wrote.
 - **Flows** appear in Studio as read-only entries named `<plugin name>: <flow name>`. Save a copy to change one; uninstalling the plugin removes the entry, never your copy. Each flow is checked with Studio's own rules at install.
-- **Settings in files.** Contributed files may contain `{{setting:<key>}}` (a declared `text` setting) and `{{mc:mctl}}` (the command that runs this Mission Control's `mctl`). Mission Control fills them when it copies the files and again whenever the setting changes. Secret settings can never be filled into a file.
-- **Collisions.** If an agent or skill with the same name already exists and Mission Control did not write it, the install stops and names it; nothing of the user's is moved or overwritten.
+- **Settings in files.** Contributed files may contain `{{setting:<key>}}` (a declared `text` setting) and `{{mc:mctl}}` (the command that runs this Shikidan's `shiki`). Shikidan fills them when it copies the files and again whenever the setting changes. Secret settings can never be filled into a file.
+- **Collisions.** If an agent or skill with the same name already exists and Shikidan did not write it, the install stops and names it; nothing of the user's is moved or overwritten.
 - **Trust.** Agents, skills and flows run with the user's full permissions, so a plugin with `contributes` needs the trust confirmation even when its runtime is `isolated`. The install prompt lists every item and where it goes; an update that adds one asks again.
 
 ## Server part
 
 ```ts
-import { definePlugin } from '@mission-control/plugin-sdk/server'
+import { definePlugin } from '@shikidan/plugin-sdk/server'
 
 export default definePlugin({
   methods: {
@@ -96,7 +97,7 @@ export default definePlugin({
 | `ctx.settings.get(key)` | The plugin's own setting, secrets included, or `null` |
 | `ctx.settings.set(key, value)` | Saves (or deletes, with `null`) one of the plugin's own settings |
 | `ctx.data` | Absolute path of the plugin's private writable folder |
-| `ctx.log(message)` | A line in the Mission Control server log, prefixed with the plugin id |
+| `ctx.log(message)` | A line in the Shikidan server log, prefixed with the plugin id |
 
 Every method the screen can `mc.call` must be listed in `methods`. Anything else —
 including inherited names like `toString` — answers `No method <name>`. Annotate
@@ -106,7 +107,7 @@ TypeScript flags any unannotated params the handler body uses.
 ## Screen part
 
 ```ts
-import { defineScreen } from '@mission-control/plugin-sdk/screen'
+import { defineScreen } from '@shikidan/plugin-sdk/screen'
 
 export default defineScreen((root, mc) => {
   root.innerHTML = '<h2>Pick a task</h2>'
@@ -114,7 +115,7 @@ export default defineScreen((root, mc) => {
 })
 ```
 
-Import `@mission-control/plugin-sdk/ui.css` alongside your screen (Mission Control already
+Import `@shikidan/plugin-sdk/ui.css` alongside your screen (Shikidan already
 serves it to isolated screens): it carries the host's tokens and the `mk-*` component
 classes — cards (`mk-card`, `mk-meta`, `mk-acts`), columns (`mk-cols`, `mk-col`), empty
 states (`mk-empty`), dialogs (`mk-dialog`), fields (`mk-field`) and buttons
@@ -151,7 +152,7 @@ reads first. Keep it under 512 KB.
 
 ```ts
 // src/server.ts
-import { definePlugin } from '@mission-control/plugin-sdk/server'
+import { definePlugin } from '@shikidan/plugin-sdk/server'
 export default definePlugin({
   methods: {
     'hello.cards': async (_p, ctx) => [{ id: 1, title: await ctx.settings.get('greeting') ?? 'Hello' }],
@@ -161,7 +162,7 @@ export default definePlugin({
 
 ```ts
 // src/screen.ts
-import { defineScreen } from '@mission-control/plugin-sdk/screen'
+import { defineScreen } from '@shikidan/plugin-sdk/screen'
 export default defineScreen(async (root, mc) => {
   for (const card of await mc.call('hello.cards') as { id: number; title: string }[]) {
     const button = document.createElement('button')
@@ -181,7 +182,7 @@ A marketplace is a git repo with a `marketplace.json` at the root:
 {
   "name": "KlangTech marketplace",
   "plugins": [
-    { "id": "hello-board", "repo": "https://github.com/LynchzDEV/mc-plugin-template",
+    { "id": "hello-board", "repo": "https://github.com/LynchzDEV/skd-plugin-template",
       "ref": "v0.1.0", "name": "Hello board", "description": "Template plugin", "runtime": "trusted" }
   ]
 }
@@ -194,11 +195,11 @@ updates are deliberate.
 
 ## Testing locally
 
-1. Run Mission Control, open **Marketplace** in the sidebar.
+1. Run Shikidan, open **Marketplace** in the sidebar.
 2. Under the list, use **Install from a link** with your repo:
    - a local checkout: `file:///Users/you/code/my-plugin` (fastest loop), or
    - a git URL plus a ref, exactly like a real install.
-3. Mission Control clones, validates the manifest, builds the screen, and shows the
+3. Shikidan clones, validates the manifest, builds the screen, and shows the
    permission prompt before anything is granted.
 
 Install failures name the step (`clone`, `manifest`, `dependencies`, `build`) and leave
@@ -217,7 +218,7 @@ test('hello.cards returns the greeting', async () => {
 ```
 
 For isolated plugins, `definePlugin` starts the stdio JSON-RPC server on its own when the
-host spawns it with `MC_PLUGIN_RUNTIME=isolated`; nothing extra to wire.
+host spawns it with `SKD_PLUGIN_RUNTIME=isolated`; nothing extra to wire.
 
 ## Isolated protocol (reference)
 
@@ -225,10 +226,13 @@ The host talks JSON-RPC 2.0 with the isolated server part over stdin/stdout
 (Content-Length framing, `vscode-jsonrpc`): host requests `plugin.call { method, params }`,
 host notification `plugin.shutdown`; the plugin may request `settings.get { key }` /
 `settings.set { key, value }` and notify `log { message }`. The plugin process receives
-`MC_PLUGIN_RUNTIME`, `MC_PLUGIN_ID` and `MC_PLUGIN_DATA` in its environment and never
+`SKD_PLUGIN_RUNTIME`, `SKD_PLUGIN_ID` and `SKD_PLUGIN_DATA` in its environment and never
 sees the settings file itself — only the values it asks for. The screen runs inside a
 sandboxed iframe (`allow-scripts`, opaque origin) and reaches the host only through `mc`
 over `postMessage`.
+
+Older hosts export `MC_PLUGIN_*` and set `window.__MC_PLUGIN__` instead. The SDK reads the
+`SKD_` names first and falls back to the old ones, so the same plugin runs on both.
 
 ## License
 

@@ -1,7 +1,7 @@
 {
-  "name": "@mission-control/plugin-sdk",
-  "version": "0.2.0",
-  "description": "Toolkit for writing Mission Control plugins: types, manifest validation, server and screen helpers, shared UI stylesheet.",
+  "name": "@shikidan/plugin-sdk",
+  "version": "0.3.0",
+  "description": "Toolkit for writing Shikidan plugins: types, manifest validation, server and screen helpers, shared UI stylesheet.",
   "type": "module",
   "license": "MIT",
   "exports": {
