@@ -52,9 +52,9 @@ describe('parseManifest', () => {
     expect(result.ok).toBe(true)
   })
 
-  test('pluginApi 3 says it needs a newer Mission Control', () => {
+  test('pluginApi 3 says it needs a newer Shikidan', () => {
     const errors = errorsOf({ ...clickupManifest, pluginApi: 3 })
-    expect(errors).toContain('This plugin needs a newer Mission Control')
+    expect(errors).toContain('This plugin needs a newer Shikidan')
   })
 
   test('rejects an id with uppercase and underscores', () => {
@@ -162,9 +162,9 @@ describe('manifestSchema', () => {
   })
 })
 
-describe('schema/mc-plugin.schema.json', () => {
+describe('schema/skd-plugin.schema.json', () => {
   test('mirrors the manifest rules for editors', () => {
-    const schema = JSON.parse(readFileSync('schema/mc-plugin.schema.json', 'utf8'))
+    const schema = JSON.parse(readFileSync('schema/skd-plugin.schema.json', 'utf8'))
     expect(schema.$schema).toBe('https://json-schema.org/draft/2020-12/schema')
     expect(schema.properties.id.pattern).toBe(PLUGIN_ID_PATTERN)
     expect(schema.properties.pluginApi.enum).toEqual([1, 2])
@@ -185,6 +185,10 @@ describe('schema/mc-plugin.schema.json', () => {
     expect(new RegExp(contributes.properties.skills.items.pattern).test('/skills/x')).toBe(false)
     expect(new RegExp(contributes.properties.flows.items.pattern).test('flows/card-pipeline.json')).toBe(true)
     expect(new RegExp(contributes.properties.flows.items.pattern).test('flows/card-pipeline.yaml')).toBe(false)
+  })
+
+  test('the legacy schema/mc-plugin.schema.json path points at the new schema', () => {
+    expect(JSON.parse(readFileSync('schema/mc-plugin.schema.json', 'utf8'))).toEqual({ $ref: './skd-plugin.schema.json' })
   })
 })
 
@@ -250,4 +254,5 @@ describe('contributes', () => {
   test('rejects an unknown contributes field', () => {
     expect(errorsOf({ ...contributingManifest, contributes: { agents: ['agents/a.md'], hooks: ['hooks/x.json'] } }).length).toBeGreaterThan(0)
   })
+
 })

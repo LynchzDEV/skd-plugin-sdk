@@ -38,7 +38,7 @@ export const manifestSchema = z.strictObject({
   pluginApi: z
     .number()
     .int('pluginApi must be a whole number')
-    .refine((value) => SUPPORTED_PLUGIN_APIS.includes(value), 'This plugin needs a newer Mission Control'),
+    .refine((value) => SUPPORTED_PLUGIN_APIS.includes(value), 'This plugin needs a newer Shikidan'),
   runtime: z.enum(['trusted', 'isolated']),
   icon: repoPath('icon').optional(),
   server: repoPath('server').optional(),
