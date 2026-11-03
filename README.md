@@ -50,10 +50,26 @@ access, and expect users to think twice before installing it.
 | `contributes.agents` | `pluginApi` 2. Agent `.md` files inside the repo, each with `name:` in its frontmatter. |
 | `contributes.skills` | `pluginApi` 2. Skill folders inside the repo, each holding `SKILL.md` with `name:`. |
 | `contributes.flows` | `pluginApi` 2. Studio flow `.json` files inside the repo. |
+| `requires` | Optional list of `{ "id", "version"? }`: other plugins this one needs. See [Requiring other plugins](#requiring-other-plugins). |
 
 Point editors at `schema/skd-plugin.schema.json` (JSON Schema draft 2020-12) for
 validation and completion while you edit the manifest. The old path
 `schema/mc-plugin.schema.json` still works: it points at the new file.
+
+## Requiring other plugins
+
+A plugin that builds on another one lists it in `requires`. When someone installs your plugin, Shikidan installs the required plugins from the same marketplace first, and shows them together with yours in one consent dialog.
+
+```json
+"requires": [
+  { "id": "clickup-board" },
+  { "id": "card-pipeline", "version": "1.7" }
+]
+```
+
+- `id` is the required plugin's id. A plugin cannot require itself, and an id can be listed only once.
+- `version` is optional: a minimum such as `1.7` or `1.7.0`, with no leading `v`.
+- At most 10 plugins per manifest.
 
 ## Contributing agents, skills and Studio flows
 
