@@ -1,4 +1,4 @@
-export type SettingField = { key: string; label: string; type: 'text' | 'secret'; help?: string }
+export type SettingField = { key: string; label: string; type: 'text' | 'secret' | 'toggle'; help?: string }
 
 export type PluginRuntime = 'trusted' | 'isolated'
 

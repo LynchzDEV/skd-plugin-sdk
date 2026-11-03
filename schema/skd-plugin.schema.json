@@ -179,7 +179,8 @@
         "type": {
           "enum": [
             "text",
-            "secret"
+            "secret",
+            "toggle"
           ]
         },
         "help": {

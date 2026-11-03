@@ -131,6 +131,11 @@ describe('parseManifest', () => {
     expect(errorsOf(withoutName).length).toBeGreaterThan(0)
   })
 
+  test('accepts an on/off settings field', () => {
+    const settings = [{ key: 'autoPick', label: 'Auto-pick', type: 'toggle', help: 'On or off.' }]
+    expect(parseManifest({ ...clickupManifest, settings }).ok).toBe(true)
+  })
+
   test('rejects a settings field with an unknown type', () => {
     const settings = [{ key: 'token', label: 'Token', type: 'password' }]
     expect(errorsOf({ ...clickupManifest, settings }).length).toBeGreaterThan(0)

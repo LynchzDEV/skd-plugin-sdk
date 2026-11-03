@@ -10,7 +10,7 @@ template repo [skd-plugin-template](https://github.com/LynchzDEV/skd-plugin-temp
 
 ```json
 {
-  "dependencies": { "@shikidan/plugin-sdk": "github:LynchzDEV/skd-plugin-sdk#v0.3.1" }
+  "dependencies": { "@shikidan/plugin-sdk": "github:LynchzDEV/skd-plugin-sdk#v0.3.2" }
 }
 ```
 
@@ -46,7 +46,7 @@ access, and expect users to think twice before installing it.
 | `permissions.network` | Plain host names (`api.clickup.com`), or `*.` and a host of at least two labels (`*.clickup-attachments.com`, which matches any address ending in `.clickup-attachments.com`). No other wildcards, no URLs. Meaningful for isolated plugins. |
 | `permissions.sessions` | A subset of `["chat", "terminal"]`. Needed to start sessions from the screen. |
 | `permissions.settings` | `true` when the plugin keeps its own settings (secrets included). |
-| `settings` | Declared fields render in the plugin's Marketplace detail. `secret` fields are masked and never sent back to the screen. |
+| `settings` | Declared fields render in the plugin's Marketplace detail. `secret` fields are masked and never sent back to the screen. `toggle` fields are an on/off switch stored as `'true'` or `'false'`. |
 | `contributes.agents` | `pluginApi` 2. Agent `.md` files inside the repo, each with `name:` in its frontmatter. |
 | `contributes.skills` | `pluginApi` 2. Skill folders inside the repo, each holding `SKILL.md` with `name:`. |
 | `contributes.flows` | `pluginApi` 2. Studio flow `.json` files inside the repo. |

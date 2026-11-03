@@ -22,7 +22,7 @@ const noRepeatedSessions = (kinds: Array<'chat' | 'terminal'>) =>
 const settingFieldSchema = z.strictObject({
   key: z.string().min(1, 'settings key is required'),
   label: z.string().min(1, 'settings label is required'),
-  type: z.enum(['text', 'secret']),
+  type: z.enum(['text', 'secret', 'toggle']),
   help: z.string().optional(),
 })
 
