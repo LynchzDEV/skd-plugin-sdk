@@ -4,6 +4,8 @@ export type PluginRuntime = 'trusted' | 'isolated'
 
 export type PluginContributions = { agents?: string[]; skills?: string[]; flows?: string[] }
 
+export type PluginRequirement = { id: string; version?: string }
+
 export type PluginManifest = {
   id: string
   name: string
@@ -18,6 +20,7 @@ export type PluginManifest = {
   permissions: { network?: string[]; sessions?: Array<'chat' | 'terminal'>; settings?: boolean }
   settings?: SettingField[]
   contributes?: PluginContributions
+  requires?: PluginRequirement[]
 }
 
 export type TaskContext = { name: string; markdown: string }

@@ -126,6 +126,30 @@
           }
         }
       }
+    },
+    "requires": {
+      "type": "array",
+      "maxItems": 10,
+      "description": "Other plugins this one needs. Shikidan installs the ones from the same marketplace, in one consent dialog, before installing this plugin.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9](?:[a-z0-9-]{1,38}[a-z0-9])$",
+            "description": "The id of the required plugin. Not this plugin's own id, and not listed twice."
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^\\d+(\\.\\d+){0,2}$",
+            "description": "Minimum version, such as 1.7 or 1.7.0. No leading v."
+          }
+        }
+      }
     }
   },
   "$defs": {

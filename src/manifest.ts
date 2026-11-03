@@ -3,8 +3,10 @@ import type { PluginManifest, SettingField } from './types'
 
 export const SUPPORTED_PLUGIN_APIS: readonly number[] = [1, 2]
 export const CONTRIBUTIONS_PLUGIN_API = 2
+export const MAX_REQUIREMENTS = 10
 
 const PLUGIN_ID_PATTERN = /^[a-z0-9](?:[a-z0-9-]{1,38}[a-z0-9])$/
+const REQUIREMENT_VERSION_PATTERN = /^\d+(\.\d+){0,2}$/
 const NETWORK_PERMISSION_PATTERN = /^(?:\*\.)?(?=.{1,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/
 const REPO_PATH_PATTERN = /^(?!\/)(?!.*(?:^|\/)\.\.(?:\/|$)).+$/
 const AGENT_PATH_PATTERN = /^(?!\/)(?!.*(?:^|\/)\.\.(?:\/|$)).+\.md$/
@@ -28,6 +30,11 @@ const contributesSchema = z.strictObject({
   agents: z.array(z.string().regex(AGENT_PATH_PATTERN, 'agents must be .md files inside the plugin repo')).optional(),
   skills: z.array(z.string().regex(SKILL_PATH_PATTERN, 'skills must be folders inside the plugin repo')).optional(),
   flows: z.array(z.string().regex(FLOW_PATH_PATTERN, 'flows must be .json files inside the plugin repo')).optional(),
+})
+
+const requirementSchema = z.strictObject({
+  id: z.string(),
+  version: z.string().optional(),
 })
 
 export const manifestSchema = z.strictObject({
@@ -56,7 +63,30 @@ export const manifestSchema = z.strictObject({
   }),
   settings: z.array(settingFieldSchema).optional(),
   contributes: contributesSchema.optional(),
+  requires: z.array(requirementSchema).optional(),
 }).superRefine((manifest, ctx) => {
+  addRequirementIssues(manifest, ctx)
+  addContributionIssues(manifest, ctx)
+})
+
+function addRequirementIssues(manifest: PluginManifest, ctx: z.RefinementCtx): void {
+  const requires = manifest.requires
+  if (!requires) return
+  const issue = (message: string) => ctx.addIssue({ code: 'custom', path: ['requires'], message })
+  if (requires.length > MAX_REQUIREMENTS) issue(`requires can list at most ${MAX_REQUIREMENTS} plugins`)
+  const seen = new Set<string>()
+  for (const entry of requires) {
+    if (!PLUGIN_ID_PATTERN.test(entry.id)) issue(`requires: "${entry.id}" is not a valid plugin id`)
+    else if (entry.id === manifest.id) issue('requires: a plugin cannot require itself')
+    else if (seen.has(entry.id)) issue(`requires: ${entry.id} is listed more than once`)
+    if (entry.version !== undefined && !REQUIREMENT_VERSION_PATTERN.test(entry.version)) {
+      issue(`requires: the version "${entry.version}" for ${entry.id} must look like 1.7 or 1.7.0`)
+    }
+    seen.add(entry.id)
+  }
+}
+
+function addContributionIssues(manifest: PluginManifest, ctx: z.RefinementCtx): void {
   const contributes = manifest.contributes
   if (!contributes) return
   if (manifest.pluginApi < CONTRIBUTIONS_PLUGIN_API) {
@@ -69,7 +99,7 @@ export const manifestSchema = z.strictObject({
   if (new Set(paths).size !== paths.length) {
     ctx.addIssue({ code: 'custom', path: ['contributes'], message: 'contributes must not repeat a path' })
   }
-})
+}
 
 export type ManifestParseResult = { ok: true; manifest: PluginManifest } | { ok: false; errors: string[] }
 

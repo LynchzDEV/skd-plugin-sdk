@@ -256,3 +256,58 @@ describe('contributes', () => {
   })
 
 })
+
+describe('requires', () => {
+  const withRequires = (requires: unknown) => ({ ...clickupManifest, requires })
+
+  test('accepts plugin ids with and without a minimum version', () => {
+    const requires = [{ id: 'card-pipeline' }, { id: 'fixstack', version: '1.7' }, { id: 'other-tool', version: '2.0.1' }]
+    const result = parseManifest(withRequires(requires))
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.manifest.requires).toEqual(requires)
+  })
+
+  test('accepts a manifest without requires and an empty list', () => {
+    expect(parseManifest(clickupManifest).ok).toBe(true)
+    expect(parseManifest(withRequires([])).ok).toBe(true)
+  })
+
+  test('accepts the largest allowed list', () => {
+    expect(parseManifest(withRequires(Array.from({ length: 10 }, (_, index) => ({ id: `tool-${index}` })))).ok).toBe(true)
+  })
+
+  test('rejects an id that is not a plugin id', () => {
+    expect(errorsOf(withRequires([{ id: 'Bad_ID' }]))).toContain('requires: "Bad_ID" is not a valid plugin id')
+  })
+
+  test.each(['v1.7', '1.7.0.1', '1.', '1.x', '', 'latest'])('rejects the version %p', (version) => {
+    expect(errorsOf(withRequires([{ id: 'fixstack', version }]))).toContain(`requires: the version "${version}" for fixstack must look like 1.7 or 1.7.0`)
+  })
+
+  test('a plugin cannot require itself', () => {
+    expect(errorsOf(withRequires([{ id: 'clickup-board' }]))).toContain('requires: a plugin cannot require itself')
+  })
+
+  test('rejects an id listed twice', () => {
+    expect(errorsOf(withRequires([{ id: 'fixstack' }, { id: 'fixstack', version: '1.0' }]))).toContain('requires: fixstack is listed more than once')
+  })
+
+  test('rejects more than 10 plugins', () => {
+    expect(errorsOf(withRequires(Array.from({ length: 11 }, (_, index) => ({ id: `tool-${index}` }))))).toContain('requires can list at most 10 plugins')
+  })
+
+  test('rejects an unknown field on an entry', () => {
+    expect(errorsOf(withRequires([{ id: 'fixstack', marketplace: 'x' }])).length).toBeGreaterThan(0)
+  })
+
+  test('the JSON schema mirrors the rules', () => {
+    const { requires } = JSON.parse(readFileSync('schema/skd-plugin.schema.json', 'utf8')).properties
+    expect(requires.maxItems).toBe(10)
+    expect(requires.items.additionalProperties).toBe(false)
+    expect(requires.items.required).toEqual(['id'])
+    expect(requires.items.properties.id.pattern).toBe(PLUGIN_ID_PATTERN)
+    const version = new RegExp(requires.items.properties.version.pattern)
+    for (const ok of ['1', '1.7', '1.7.0']) expect(version.test(ok), ok).toBe(true)
+    for (const bad of ['v1.7', '1.7.0.1', '1.', '', 'latest']) expect(version.test(bad), bad).toBe(false)
+  })
+})
