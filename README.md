@@ -10,7 +10,7 @@ template repo [skd-plugin-template](https://github.com/LynchzDEV/skd-plugin-temp
 
 ```json
 {
-  "dependencies": { "@shikidan/plugin-sdk": "github:LynchzDEV/skd-plugin-sdk#v0.3.0" }
+  "dependencies": { "@shikidan/plugin-sdk": "github:LynchzDEV/skd-plugin-sdk#v0.3.1" }
 }
 ```
 
